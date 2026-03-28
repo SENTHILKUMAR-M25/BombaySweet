@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const API = "http://localhost:5000/api/admin"; // admin routes
+const API = "http://localhost:5000/api/admin";
 
 const UsersControl = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch all users
+  // Fetch users
   const fetchUsers = async () => {
     try {
       const res = await axios.get("/users", { baseURL: API, withCredentials: true });
@@ -22,10 +22,9 @@ const UsersControl = () => {
   // Delete user
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
-
     try {
       await axios.delete(`/users/${id}`, { baseURL: API, withCredentials: true });
-      setUsers(users.filter((user) => user._id !== id));
+      setUsers(users.filter(u => u._id !== id));
     } catch (err) {
       console.error("Failed to delete user:", err);
     }
@@ -62,7 +61,7 @@ const UsersControl = () => {
                   <td className="p-3 border-b">{user.userId}</td>
                   <td className="p-3 border-b">{user.name}</td>
                   <td className="p-3 border-b">{user.email}</td>
-                  <td className="p-3 border-b space-x-2">
+                  <td className="p-3 border-b">
                     <button
                       onClick={() => handleDelete(user._id)}
                       className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"

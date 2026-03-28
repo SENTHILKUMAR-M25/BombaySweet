@@ -1,23 +1,26 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; 
-import { CartContext } from "../context/CartContext";
+import { useNavigate } from "react-router-dom";
 
-const PRODUCT_API = "http://localhost:5000/api/product"; 
-const CART_API = "http://localhost:5000/api/cart"; // <-- backend cart route
+const PRODUCT_API = "http://localhost:5000/api/product";
+const CART_API = "http://localhost:5000/api/cart";
 
-const ProductPage = () => {
+const ProductCard = () => {
   const [products, setProducts] = useState([]);
-  const { addToCart } = useContext(CartContext);
+  const [loading, setLoading] = useState(true);
+  const [addingId, setAddingId] = useState(null);
+
   const navigate = useNavigate();
 
-  // Fetch products
+  // ================= FETCH PRODUCTS =================
   const fetchProducts = async () => {
     try {
       const res = await axios.get(`${PRODUCT_API}/all`);
-      setProducts(res.data);
+      setProducts(res.data || []);
     } catch (err) {
-      console.error("Failed to fetch products:", err);
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -25,85 +28,128 @@ const ProductPage = () => {
     fetchProducts();
   }, []);
 
-  // Handle Add to Cart
+  // ================= ADD TO CART =================
   const handleAddToCart = async (product) => {
     try {
-      // ✅ Call correct backend cart route
-      await axios.post(`${CART_API}/add`, { productId: product._id, quantity: 1 });
+      if (product.stock <= 0) return; // prevent adding out-of-stock
+      setAddingId(product._id);
 
-      // Update frontend context
-      addToCart(product);
+      await axios.post(
+        `${CART_API}/add`,
+        { productId: product._id, quantity: 1 },
+        { withCredentials: true }
+      );
 
-      // Navigate to cart page
+      alert("✅ Added to cart");
       navigate("/cart");
     } catch (err) {
-      console.error("Add to cart failed:", err);
+      console.error("Cart error:", err);
+      alert("❌ Failed to add");
+    } finally {
+      setAddingId(null);
     }
   };
 
+  // ================= LOADING =================
+  if (loading) {
+    return (
+      <p className="text-center mt-20 text-lg text-gray-500">
+        Loading products...
+      </p>
+    );
+  }
+
+  // ================= EMPTY =================
+  if (products.length === 0) {
+    return (
+      <p className="text-center mt-20 text-gray-500">
+        No products available
+      </p>
+    );
+  }
+
+  // ================= UI =================
   return (
     <main className="max-w-[1400px] mx-auto px-8 py-10">
-      <h2 className="text-3xl font-bold mb-10 font-serif">Shop All</h2>
+      <h2 className="text-3xl font-bold mb-10">Shop Products</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-        {products.map((product) => (
-          <div
-            key={product._id}
-            className="max-w-sm overflow-hidden rounded-2xl bg-white shadow-lg font-sans"
-          >
-            <div className="relative">
-              <img
-                src={`http://localhost:5000/uploads/${product.image}`}
-                alt={product.name}
-                className="w-full object-cover"
-              />
+        {products.map((product) => {
+          // Determine stock message
+          let stockMsg = "In Stock";
+          let stockClass = "text-green-600";
+          if (product.stock === 0) {
+            stockMsg = "Out of Stock";
+            stockClass = "text-red-600";
+          } else if (product.stock <= 3) {
+            stockMsg = "Limited Stock";
+            stockClass = "text-yellow-600";
+          }
 
-              {product.tag && (
-                <span className="absolute right-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-red-400 shadow-sm">
-                  {product.tag}
+          return (
+            <div
+              key={product._id}
+              className="rounded-2xl bg-white shadow-lg overflow-hidden hover:shadow-xl transition"
+            >
+              {/* IMAGE */}
+              <div className="relative">
+                <img
+                  src={`http://localhost:5000/uploads/${product.image}`}
+                  alt={product.name}
+                  className="w-full h-60 object-cover"
+                />
+                <span className={`absolute top-3 left-3 bg-white px-2 py-1 text-xs rounded shadow ${stockClass}`}>
+                  {stockMsg}
                 </span>
-              )}
-
-              {product.rating && (
-                <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-md bg-slate-900/80 px-2 py-1 text-sm text-white">
-                  <span className="text-yellow-400">★</span>
-                  <span className="font-bold">{product.rating}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="p-5">
-              <h2 className="text-xl font-medium text-gray-900">{product.name}</h2>
-
-              <div className="mt-4 flex items-center gap-2">
-                <span className="text-sm text-gray-500">From</span>
-                <span className="text-2xl font-bold text-gray-900">₹{product.price}</span>
-                {product.oldPrice && (
-                  <span className="text-lg text-gray-400 line-through">₹{product.oldPrice}</span>
-                )}
-                {product.oldPrice && (
-                  <span className="rounded-md bg-red-100 px-2 py-1 text-xs font-bold text-red-800">
-                    {Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}% OFF
+                {product.tag && (
+                  <span className="absolute top-3 right-3 bg-white px-2 py-1 text-xs rounded shadow text-red-500">
+                    {product.tag}
                   </span>
                 )}
               </div>
 
-              <button
-                onClick={() => handleAddToCart(product)}
-                className="mt-8 w-full rounded-xl bg-[#802046] py-4 text-sm font-bold tracking-widest text-white uppercase transition-colors hover:bg-[#6a1a3a]"
-              >
-                Add to Cart
-              </button>
-            </div>
-          </div>
-        ))}
+              {/* DETAILS */}
+              <div className="p-5">
+                <h3 className="text-lg font-semibold">{product.name}</h3>
 
-        {products.length === 0 && (
-          <p className="text-center text-gray-500 col-span-full mt-20">No products available.</p>
-        )}
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-xl font-bold">₹{product.price}</span>
+
+                  {product.oldPrice && (
+                    <>
+                      <span className="line-through text-gray-400">₹{product.oldPrice}</span>
+                      <span className="text-green-600 text-sm font-bold">
+                        {Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}% OFF
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* BUTTON */}
+                <button
+                  onClick={() => handleAddToCart(product)}
+                  disabled={addingId === product._id || product.stock === 0}
+                  className={`mt-6 w-full py-2 rounded-lg text-white transition ${
+                    product.stock === 0
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : addingId === product._id
+                      ? "bg-gray-400"
+                      : "bg-black hover:bg-gray-800"
+                  }`}
+                >
+                  {product.stock === 0
+                    ? "Out of Stock"
+                    : addingId === product._id
+                    ? "Adding..."
+                    : "Add to Cart"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </main>
   );
 };
 
-export default ProductPage;
+export default ProductCard;

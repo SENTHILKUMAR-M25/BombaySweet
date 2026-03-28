@@ -153,6 +153,8 @@ import UserLogin from "./pages/User/UserLogin";
 import ProductPage from "./pages/ProductPage";
 import CartPage from "./pages/Cartpage";
 import Checkout from "./pages/Checkout";
+import Dashboard from "./pages/Admin/Controls/Dashboard";
+import Home from "./components/Home";
 
 // Wrapper to conditionally render Navbar
 const Layout = ({ children }) => {
@@ -165,7 +167,9 @@ const Layout = ({ children }) => {
     "/admin/category",
     "/admin/orders",
     "/admin/users",
-    "/admin/product"
+    "/admin/product",
+    "/admin/dashboard",
+
   ];
   const hideNavbar = hideNavbarPaths.includes(location.pathname);
 
@@ -183,7 +187,7 @@ function App() {
       <Layout>
         <Routes>
           {/* ===== Home ===== */}
-          <Route path="/" element={<Hero />} />
+          <Route path="/" element={<Home />} />
 
           {/* ===== User Routes ===== */}
           <Route path="/login" element={<UserLogin />} />
@@ -207,7 +211,8 @@ function App() {
           >
             
             {/* Nested Admin Pages */}
-            <Route index element={<Navigate to="category" />} />
+            <Route index element={<Navigate to="dashboard" />} />
+            <Route  path="dashboard" element={<Dashboard />} />
             <Route path="category" element={<CategoryList />} />
             <Route path="product" element={<ProductManager />} />
             <Route path="users" element={<UsersManager />} />
