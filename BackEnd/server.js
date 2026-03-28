@@ -4,7 +4,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const session = require("express-session");
 const cors = require("cors");
-const orderRoutes = require("./routes/order");
 require("dotenv").config();
 
 const app = express();
@@ -47,7 +46,8 @@ app.use("/api/auth", require("./routes/commonAuth"));
 app.use("/api/category", require("./routes/category"));
 app.use("/api/product", require("./routes/product"));
 app.use("/api/cart", require("./routes/cart"));
-app.use("/api/order", orderRoutes);
+app.use("/api/order", require("./routes/order"));
+app.use("/api/dashboard", require("./routes/dashboard"));
 // ===== TEST =====
 app.get("/", (req, res) => {
   res.send("🚀 Backend Running");

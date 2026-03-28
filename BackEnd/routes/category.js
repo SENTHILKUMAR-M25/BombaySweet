@@ -3,27 +3,7 @@ const router = express.Router();
 const Category = require("../models/Category");
 const upload = require("../middleware/upload");
 
-// ================= ADD CATEGORY =================
-// router.post("/add", upload.single("image"), async (req, res) => {
-//   try {
-//     if (!req.body.name || !req.file) {
-//       return res.status(400).json({ msg: "All fields required" });
-//     }
 
-//     const category = await Category.create({
-//       name: req.body.name,
-//       image: req.file.filename,
-//     });
-
-//     res.json({
-//       msg: "Category Added",
-//       category,
-//     });
-//   } catch (err) {
-//     console.error("ADD ERROR:", err);
-//     res.status(500).json({ msg: "Server Error" });
-//   }
-// });
 router.post("/add", upload.single("image"), async (req, res) => {
   try {
     if (!req.body.name || !req.file) {

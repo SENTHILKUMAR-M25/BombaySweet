@@ -1,137 +1,85 @@
-// const express = require("express");
-// const router = express.Router();
-// const Order = require("../models/Order");
-// const Cart = require("../models/Cart");
-
-// // Create order from cart
-// router.post("/checkout/:userId", async (req, res) => {
-//   try {
-//     const { userId } = req.params;
-//     const { shippingAddress, paymentMethod } = req.body;
-
-//     // Fetch cart items
-//     const cart = await Cart.findOne({ user: userId }).populate("items.product");
-//     if (!cart || cart.items.length === 0)
-//       return res.status(400).json({ msg: "Cart is empty" });
-
-//     const orderItems = cart.items.map((item) => ({
-//       product: item.product._id,
-//       quantity: item.quantity,
-//       price: item.product.price,
-//     }));
-
-//     const totalAmount = orderItems.reduce(
-//       (sum, item) => sum + item.price * item.quantity,
-//       0
-//     );
-
-//     // Create order
-//     const order = await Order.create({
-//       user: userId,
-//       items: orderItems,
-//       shippingAddress,
-//       totalAmount,
-//       paymentMethod,
-//     });
-
-//     // Clear cart
-//     cart.items = [];
-//     await cart.save();
-
-//     res.json({ msg: "Order placed successfully", order });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// });
-
-// // Get user's orders
-// router.get("/orders/:userId", async (req, res) => {
-//   try {
-//     const orders = await Order.find({ user: req.params.userId }).populate("items.product");
-//     res.json(orders);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// });
-
-// module.exports = router;
-
-
-
-
 const express = require("express");
 const router = express.Router();
-const Order = require("../models/Order");
 const Cart = require("../models/Cart");
+const Order = require("../models/Order");
+const Product = require("../models/Product");
 
-// ================= CREATE ORDER FROM CART =================
-router.post("/checkout/:userId", async (req, res) => {
+// ================= PLACE ORDER =================
+router.post("/place", async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { shippingAddress, paymentMethod } = req.body;
-
-    // Fetch user's cart
-    const cart = await Cart.findOne({ user: userId }).populate("items.product");
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ msg: "Cart is empty" });
+    if (!req.session.user) {
+      return res.status(401).json({ msg: "Login required" });
     }
 
-    // Map cart items to order items
-    const orderItems = cart.items.map((item) => ({
-      product: item.product._id,
-      quantity: item.quantity,
-      price: item.product.price,
-    }));
+    const userId = req.session.user.id;
+    const cartItems = await Cart.find({ user: userId }).populate("product");
 
-    // Calculate total amount
-    const totalAmount = orderItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
+    if (!cartItems.length) return res.status(400).json({ msg: "Cart is empty" });
 
-    // Create new order
+    const orderItems = [];
+
+    for (const item of cartItems) {
+      const product = await Product.findById(item.product._id);
+      if (!product) return res.status(404).json({ msg: `Product ${item.product.name} not found` });
+      if (product.stock < item.quantity)
+        return res.status(400).json({ msg: `Insufficient stock for ${product.name}` });
+
+      product.stock -= item.quantity;
+      await product.save();
+
+      orderItems.push({
+        product: product._id,
+        name: product.name,
+        price: item.price,
+        quantity: item.quantity,
+        total: item.total,
+      });
+    }
+
+    const totalAmount = orderItems.reduce((acc, item) => acc + item.total, 0);
+
     const order = await Order.create({
       user: userId,
       items: orderItems,
-      shippingAddress,
       totalAmount,
-      paymentMethod,
-      status: "Pending", // optional: you can track order status
+      shippingAddress: req.body,
     });
 
-    // Clear the user's cart
-    cart.items = [];
-    await cart.save();
+    await Cart.deleteMany({ user: userId });
 
-    res.status(201).json({ msg: "Order placed successfully", order });
+    res.json({ msg: "Order placed successfully", order });
   } catch (err) {
-    console.error("Checkout Error:", err);
-    res.status(500).json({ msg: "Server error" });
+    console.error("ORDER ERROR:", err);
+    res.status(500).json({ msg: "Order failed" });
   }
 });
 
-// ================= GET USER'S ORDERS =================
-router.get("/orders/:userId", async (req, res) => {
+// ================= GET ALL ORDERS =================
+router.get("/all", async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.params.userId }).populate("items.product");
-    res.json(orders);
+    const orders = await Order.find()
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
+
+    res.json({ orders });
   } catch (err) {
-    console.error("Fetch Orders Error:", err);
-    res.status(500).json({ msg: "Server error" });
+    console.error("FETCH ORDERS ERROR:", err);
+    res.status(500).json({ msg: "Failed to fetch orders" });
   }
 });
 
-// ================= GET SINGLE ORDER BY ID =================
-router.get("/:orderId", async (req, res) => {
+// ================= DELETE ORDER (ADMIN ONLY) =================
+router.delete("/:id", async (req, res) => {
   try {
-    const order = await Order.findById(req.params.orderId).populate("items.product");
-    if (!order) return res.status(404).json({ msg: "Order not found" });
-    res.json(order);
+  
+
+    const deleted = await Order.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ msg: "Order not found" });
+
+    res.json({ msg: "Order deleted successfully" });
   } catch (err) {
-    console.error("Fetch Order Error:", err);
-    res.status(500).json({ msg: "Server error" });
+    console.error("DELETE ORDER ERROR:", err);
+    res.status(500).json({ msg: "Failed to delete order" });
   }
 });
 
